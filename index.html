@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confluence Turtle 3.2.6</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--bd:#2a2f3a;--tx:#e8eaf0;--mu:#8b93a5;--g:#3ddc84;--r:#ff5c5c;--y:#ffd54a;--a:#4dd0e1}
+@media (prefers-color-scheme: light){:root{--bg:#f4f5f8;--card:#fff;--bd:#d9dce4;--tx:#1a1d24;--mu:#606878;--g:#0a8f4a;--r:#d32f2f;--y:#b58900;--a:#00838f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;padding:12px;max-width:900px;margin:auto}
+h1{font-size:17px;margin:4px 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mu);flex:1 1 130px}
+input,button,select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);width:100%}
+button{background:var(--a);color:#000;border:0;font-weight:600;cursor:pointer;align-self:flex-end;flex:1 1 130px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;color:var(--mu);text-align:right;font-weight:600;padding:4px}
+th:first-child,td:first-child{text-align:left}
+td{padding:6px 4px;border-bottom:1px solid var(--bd);text-align:right;font-variant-numeric:tabular-nums}
+td:last-child,th:last-child{text-align:left;color:var(--mu)}
+.g{color:var(--g)}.r{color:var(--r)}.y{color:var(--y)}.m{color:var(--mu)}
+canvas{width:100%;height:340px;display:block}
+#st{font-size:12px;color:var(--mu);margin-top:6px}
+.gauge{position:relative;height:14px;border-radius:7px;margin:34px 6px 8px;background:linear-gradient(90deg,var(--r) 0%,var(--r) 30%,var(--y) 40%,var(--y) 60%,var(--g) 70%,var(--g) 100%);opacity:.9}
+.gauge .mid{position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;background:var(--tx);opacity:.6}
+.turtle{position:absolute;top:-30px;font-size:28px;line-height:1;transform:translateX(-50%);transition:left .6s ease;filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+.gl{display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin:0 6px}
+#zone{text-align:center;font-size:18px;font-weight:700;margin-top:8px}
+#parts,#cur{font-size:12px;color:var(--mu);text-align:center;margin-top:4px}
+.note{font-size:12px;color:var(--mu);margin-top:8px}
+#tv{text-align:center;font-size:22px;font-weight:700;margin-top:6px}
+#tsub{text-align:center;font-size:12px;color:var(--mu);margin-top:4px}
+.tbar{position:relative;height:10px;border-radius:5px;background:var(--bd);margin:12px 6px 6px}
+.tbar .mid{position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;background:var(--tx);opacity:.6}
+.tbar .fill{position:absolute;top:0;bottom:0;border-radius:5px;transition:left .6s ease,width .6s ease}
+</style>
+</head>
+<body>
+<h1>Confluence Turtle 3.2.6 — direzione dal Confluence Profile</h1>
+
+<div class="card">
+  <div class="row">
+    <label>Worker Yahoo<input id="worker" value="https://yahooproxy.b864v27974.workers.dev"></label>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <label>Dati<select id="mode"><option value="i">Intraday 1 min</option><option value="d">Giornalieri</option></select></label>
+    <label>Simbolo<input id="sym" value="QQQ"></label>
+    <label>Storico<input id="range" value="5d"></label>
+    <label>Conferma (barre)<input id="conf" type="number" min="1" max="20" value="3"></label>
+    <button id="go">Calcola</button>
+  </div>
+  <details style="margin-top:8px"><summary class="m" style="cursor:pointer;font-size:12px">Impostazioni dello script (default originali)</summary>
+    <div class="row" id="adv" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:8px"><label style="flex:1 1 100%">Livelli Fibonacci (separati da virgola)<input id="ratios" value="0,1,0.382,0.5,0.618,0.786,1.272"></label></div>
+    <button id="areset" style="margin-top:8px;flex:none;width:auto;padding:6px 12px">Ripristina impostazioni predefinite</button>
+  </details>
+  <div id="st"></div>
+</div>
+
+<div id="out" style="display:none">
+  <div class="card">
+    <div class="m" style="font-size:12px">Trend del momento (confluenza + swing + momentum del prezzo)</div>
+    <div id="tv"></div>
+    <div class="tbar"><div class="mid"></div><div class="fill" id="tfill"></div></div>
+    <div id="tsub"></div>
+    <table id="ttbl" style="margin-top:8px"></table>
+    <div class="note" id="tnote"></div>
+  </div>
+  <div class="card">
+    <div class="m" style="font-size:12px">Multi-timeframe (ogni TF scaricato e calcolato a parte, solo barre chiuse)</div>
+    <table id="mtbl" style="margin-top:6px"></table>
+    <div class="note" id="mnote"></div>
+  </div>
+  <div class="card">
+    <div class="m" style="font-size:12px">Dashboard direzionale (punteggi da −100 a +100)</div>
+    <table id="dtbl" style="margin-top:6px"></table>
+    <div class="note" id="dinfo"></div>
+  </div>
+  <div class="card">
+    <div class="m" style="font-size:12px">Segnali e preallarmi</div>
+    <div id="sgv" style="font-size:18px;font-weight:700;margin:6px 0"></div>
+    <div class="note" id="why"></div>
+    <table id="sgt"></table>
+    <div class="note" id="ewl"></div>
+    <div class="m" style="font-size:12px;margin-top:10px">Storico segnali confermati (salvato in questo browser)</div>
+    <table id="sglog"></table>
+    <div class="note" id="dq"></div>
+  </div>
+  <div class="card">
+    <div class="gl"><span class="r">◀ SHORT</span><span class="m">neutra</span><span class="g">LONG ▶</span></div>
+    <div class="gauge"><div class="mid"></div><div class="turtle" id="turtle">🐢</div></div>
+    <div id="zone"></div>
+    <div id="parts"></div>
+    <div id="cur"></div>
+  </div>
+  <div class="card">
+    <div class="m" style="font-size:12px;margin-bottom:4px">Colonna Confluence dello script (verde = supporto sotto il prezzo, rosso = resistenza sopra; linea = prezzo attuale)</div>
+    <canvas id="cv"></canvas>
+  </div>
+  <div class="card">
+    <table id="tbl"></table>
+    <div class="note" id="note"></div>
+  </div>
+  <div class="card">
+    <div class="m" style="font-size:12px;margin-bottom:4px">Registro dei cambi di zona confermati (salvato in questo browser)</div>
+    <table id="logtbl"></table>
+    <button id="logclear" style="margin-top:8px;flex:none;width:auto;padding:6px 12px">Svuota registro</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}}, set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+
+// impostazioni dello script originale (dichiarate prima del primo uso)
+const ADV = [
+  ['atrLen','Lunghezza ATR',100,1], ['tol','Tolleranza (ATR)',0.15,0.01],
+  ['len1','Swing breve (pivot)',10,1], ['len2','Swing medio (pivot)',30,1], ['len3','Swing lungo (pivot)',80,1],
+  ['obLen','Pivot Order Block',12,1], ['obMin','OB altezza min (ATR)',0.1,0.05], ['fvgMin','FVG altezza min (ATR)',0.25,0.05],
+  ['wFib','Peso Fib',1,0.1], ['wOB','Peso OB',1,0.1], ['wFVG','Peso FVG',1,0.1], ['wVol','Peso volume',1,0.1],
+  ['wS','Score: peso struttura',0.25,0.05], ['wT','Score: peso trend (swing)',0.15,0.05], ['wC','Score: peso confluenza',0.2,0.05], ['wM','Score: peso momentum',0.15,0.05], ['wP','Score: peso pressione',0.1,0.05], ['wF','Score: peso multi-timeframe',0.15,0.05], ['wR','Score: peso vicinanza S/R (correlata alla confluenza)',0.05,0.05], ['expN','Scadenza segnale confermato (barre chiuse)',60,10]
+];
+const DEF_RATIOS = '0,1,0.382,0.5,0.618,0.786,1.272';
+const VOLMAX = 2000, OBSRC = 5, OBWICK_ATR = 2.0, VOLBIN_ATR = 0.1, VOLDUP = 80, HVNWIN = 1.0, MAXBARS = 2500;
+
+$('adv').innerHTML = ADV.map(a=>`<label style="flex:1 1 110px">${a[1]}<input id="a_${a[0]}" type="number" step="${a[3]}" min="0"></label>`).join('');
+(function(){ let sv=null; try{ sv=JSON.parse(store.get('cf_adv')); }catch(e){} ADV.forEach(a=>{ $('a_'+a[0]).value = (sv&&isFinite(sv[a[0]])&&sv[a[0]]>=0) ? sv[a[0]] : a[2]; }); })();
+$('worker').value = store.get('cf_worker') || 'https://yahooproxy.b864v27974.workers.dev';
+$('sym').value    = store.get('cf_sym') || 'QQQ';
+$('mode').value   = store.get('cf_mode') || 'i';
+$('conf').value   = store.get('cf_conf') || '3';
+$('ratios').value = store.get('cf_ratios') || DEF_RATIOS;
+$('range').value  = store.get('cf_range_'+$('mode').value) || ($('mode').value==='i' ? '5d' : '2y');
+
+const fmt = (v,d=2) => (v==null||!isFinite(v)) ? 'n/d' : v.toFixed(d);
+function smoothRma(a,p){ const n=a.length,o=new Array(n).fill(null); if(n<p) return o; let s=0; for(let i=0;i<p;i++) s+=a[i]; o[p-1]=s/p; for(let i=p;i<n;i++) o[i]=(o[i-1]*(p-1)+a[i])/p; return o; }
+
+// =====================================================================
+//  Motore: porting del Pine «Confluence Profile» (ultima barra = barra corrente)
+// =====================================================================
+function confluence(B, S){
+  const n=B.c.length-1, o=B.o, h=B.h, l=B.l, c=B.c, v=B.v, L=n-1;   // 3.2: l'ultima barra (in formazione) è esclusa da swing, OB, FVG, profili e score
+  const tr = c.map((x,i)=> i===0 ? h[i]-l[i] : Math.max(h[i]-l[i], Math.abs(h[i]-c[i-1]), Math.abs(l[i]-c[i-1])));
+  const atr = smoothRma(tr, S.atrLen);
+
+  // ---- swing con trailing (zigzag di pivot confermati) ----
+  function pivH(p,len){ if(p-len<0||p+len>L) return false; const x=h[p]; for(let j=p-len;j<=p+len;j++){ if(j===p) continue; if(j<p ? !(x>h[j]) : !(x>=h[j])) return false; } return true; }
+  function pivL(p,len){ if(p-len<0||p+len>L) return false; const x=l[p]; for(let j=p-len;j<=p+len;j++){ if(j===p) continue; if(j<p ? !(x<l[j]) : !(x<=l[j])) return false; } return true; }
+  function trailFib(len){
+    let pA=null,iA=null,pB=null,iB=null,hB=true;
+    const ext=(cur,o1,o2,hi)=>{ let p=null,idx=null; const a=Math.max(0,o1), b=Math.min(o2,Math.min(cur,VOLMAX));
+      if(a<=b){ for(let off=a;off<=b;off++){ const val=hi?h[cur-off]:l[cur-off]; if(p==null||(hi?val>p:val<p)){ p=val; idx=cur-off; } } } return [p,idx]; };
+    for(let cur=0;cur<n;cur++){
+      if(pB==null){ pA=l[cur]; iA=cur; pB=h[cur]; iB=cur; hB=true; }
+      const p=cur-len;
+      if(p>=len && pivH(p,len)){
+        const ph=h[p];
+        if(hB && iB<p){
+          const [lp,li]=ext(cur,cur-p+1,cur-iB-1,false);
+          if(lp!=null){
+            const [hp,hi_]=ext(cur,0,cur-li-1,true);
+            pA=lp; iA=li; pB=hp; iB=hi_; hB=true;
+            const [lp2,li2]=ext(cur,0,cur-iB-1,false);
+            if(lp2!=null && lp2<pA){ pA=pB; iA=iB; pB=lp2; iB=li2; hB=false; }
+          }
+        } else if(!hB && p>iB){
+          const [hp,hi_]=ext(cur,0,cur-iB-1,true);
+          if(hp!=null){ pA=pB; iA=iB; pB=hp; iB=hi_; hB=true; }
+        } else if(!hB && p>iA){ pA=ph; iA=p; }
+      }
+      if(p>=len && pivL(p,len)){
+        const pl=l[p];
+        if(!hB && iB<p){
+          const [hp,hi_]=ext(cur,cur-p+1,cur-iB-1,true);
+          if(hp!=null){
+            const [lp,li]=ext(cur,0,cur-hi_-1,false);
+            pA=hp; iA=hi_; pB=lp; iB=li; hB=false;
+            const [hp2,hi2]=ext(cur,0,cur-iB-1,true);
+            if(hp2!=null && hp2>pA){ pA=pB; iA=iB; pB=hp2; iB=hi2; hB=true; }
+          }
+        } else if(hB && p>iB){
+          const [lp,li]=ext(cur,0,cur-iB-1,false);
+          if(lp!=null){ pA=pB; iA=iB; pB=lp; iB=li; hB=false; }
+        } else if(hB && p>iA){ pA=pl; iA=p; }
+      }
+      const grn = c[cur]>=o[cur];
+      for(let step=0;step<2;step++){
+        const doLow = grn ? step===0 : step===1;
+        if(doLow){
+          if(!hB && l[cur]<pB){ pB=l[cur]; iB=cur; }
+          else if(hB && l[cur]<pA){ pA=pB; iA=iB; pB=l[cur]; iB=cur; hB=false; }
+        } else {
+          if(hB && h[cur]>pB){ pB=h[cur]; iB=cur; }
+          else if(!hB && h[cur]>pA){ pA=pB; iA=iB; pB=h[cur]; iB=cur; hB=true; }
+        }
+      }
+    }
+    return { h: hB?pB:pA, l: hB?pA:pB, z:hB, anchor:iA };
+  }
+  const sw = [S.len1,S.len2,S.len3].map(trailFib);
+
+  // ---- Order Block e FVG (creazione + tracking barra per barra) ----
+  const obZ=[], fvZ=[];
+  const isGreen=(cur,off)=>c[cur-off]>o[cur-off], isRed=(cur,off)=>c[cur-off]<o[cur-off];
+  function addZone(zs,t,b,left,bull,fvg){ if(zs.length>=300) zs.shift(); zs.push({top:t,bot:b,left,bull,fvg,ce:(t+b)/2}); }
+  function createOB(cur,bull){
+    const idx=S.obLen; if(cur-idx-OBSRC<0) return;
+    let src=idx;
+    if(bull && !isRed(cur,idx)){ for(let k=idx+1;k<=idx+OBSRC;k++){ if(isRed(cur,k)){ src=k; break; } } }
+    else if(!bull && !isGreen(cur,idx)){ for(let k=idx+1;k<=idx+OBSRC;k++){ if(isGreen(cur,k)){ src=k; break; } } }
+    let t=h[cur-src], b=l[cur-src];
+    if(bull) b=Math.min(b,l[cur-idx]); else t=Math.max(t,h[cur-idx]);
+    let used=src;
+    if((t-b)>atr[cur]*OBWICK_ATR){
+      if(bull){ t=Math.min(o[cur-idx],c[cur-idx]); b=l[cur-idx]; } else { t=h[cur-idx]; b=Math.max(o[cur-idx],c[cur-idx]); }
+      used=idx;
+    }
+    if((t-b)>=atr[cur]*S.obMin) addZone(obZ,t,b,cur-used,bull,false);
+  }
+  function track(zs,cur){
+    for(let i=zs.length-1;i>=0;i--){
+      const z=zs[i];
+      if(z.bull && c[cur]<z.bot){ zs.splice(i,1); continue; }
+      if(!z.bull && c[cur]>z.top){ zs.splice(i,1); continue; }
+      const touch = l[cur]<=z.top && h[cur]>=z.bot;
+      if(z.fvg && touch){
+        if(z.bull){ if(l[cur]<=z.bot){ zs.splice(i,1); continue; } z.top=Math.min(z.top,l[cur]); }
+        else { if(h[cur]>=z.top){ zs.splice(i,1); continue; } z.bot=Math.max(z.bot,h[cur]); }
+      }
+    }
+  }
+  for(let cur=0;cur<n;cur++){
+    if(atr[cur]==null) continue;
+    const p=cur-S.obLen;
+    if(p>=S.obLen){ if(pivL(p,S.obLen)) createOB(cur,true); if(pivH(p,S.obLen)) createOB(cur,false); }
+    if(cur>=2){
+      if(l[cur]>h[cur-2] && (l[cur]-h[cur-2])>=atr[cur]*S.fvgMin) addZone(fvZ,l[cur],h[cur-2],cur-2,true,true);
+      if(h[cur]<l[cur-2] && (l[cur-2]-h[cur])>=atr[cur]*S.fvgMin) addZone(fvZ,l[cur-2],h[cur],cur-2,false,true);
+    }
+    track(obZ,cur); track(fvZ,cur);
+  }
+
+  // ---- calcolo sull'ultima barra ----
+  const atrC = atr[L-1]!=null ? atr[L-1] : atr[L];
+  if(atrC==null) return null;
+  const tol = S.tol*atrC;
+  const active=[false,false,false], dup=[-1,-1,-1];
+  for(let k=0;k<3;k++){ const d=sw[k].h-sw[k].l; active[k]= isFinite(d) && d>0; }
+  for(let k=1;k<3;k++){
+    for(let m=0;m<k;m++) if(active[k]&&active[m]&&dup[k]<0 && Math.abs(sw[k].h-sw[m].h)<=tol && Math.abs(sw[k].l-sw[m].l)<=tol) dup[k]=m;
+    if(dup[k]>=0) active[k]=false;
+  }
+  const lvP=[], lvK=[];
+  for(let k=0;k<3;k++){ if(!active[k]) continue; const H=sw[k].h, Lw=sw[k].l, d=H-Lw;
+    for(const rt of S.ratios){ lvP.push(sw[k].z ? H-d*rt : Lw+d*rt); lvK.push(k); } }
+  let kL=-1; for(let k=0;k<3;k++) if(active[k]) kL=k;
+  const swLL = kL>=0?sw[kL].l:null, swHL = kL>=0?sw[kL].h:null;
+  let fLo=swLL, fHi=swHL;
+  for(const p of lvP){ fLo = fLo==null?p:Math.min(fLo,p); fHi = fHi==null?p:Math.max(fHi,p); }
+  const cRef = c[L];   // ultima chiusura
+  const rLo = fLo==null ? cRef-10*atrC : Math.min(fLo,cRef)-tol;
+  const rHi = fHi==null ? cRef+10*atrC : Math.max(fHi,cRef)+tol;
+  const N = Math.min(200, Math.max(81, Math.ceil((rHi-rLo)/tol)));
+  const rh = (rHi-rLo)/N, rc = Math.max(0,Math.min(N-1,Math.floor((cRef-rLo)/rh)));
+  const lo = cRef-(rc+0.5)*rh, hi = lo+N*rh, tR = rh<=tol ? tol : tol+rh/2;
+  const rowsIn=(a,b)=>{ let rA,rB; if(rh<=tol){ rA=Math.max(0,Math.ceil((a-lo)/rh-0.5)); rB=Math.min(N-1,Math.floor((b-lo)/rh-0.5)); } else { rA=Math.max(0,Math.floor((a-lo)/rh)); rB=Math.min(N-1,Math.floor((b-lo)/rh)); } return [rA,rB]; };
+
+  // finestra Vext
+  const spanL = kL>=0 ? Math.min(L-sw[kL].anchor, VOLMAX-1) : -1;
+  let endZ=-1, cutZ=false;
+  if(kL>=0){
+    const needLo=fLo<swLL, needHi=fHi>swHL;
+    if(needLo||needHi){
+      const lim=Math.min(VOLMAX-1,L); let offLo=-1,offHi=-1,offMinL=-1,offMaxH=-1,minL=swLL,maxH=swHL;
+      for(let off=0;off<=lim;off++){
+        const ix=L-off;
+        if(needLo&&offLo<0){ if(l[ix]<=fLo) offLo=off; else if(l[ix]<minL){ minL=l[ix]; offMinL=off; } }
+        if(needHi&&offHi<0){ if(h[ix]>=fHi) offHi=off; else if(h[ix]>maxH){ maxH=h[ix]; offMaxH=off; } }
+        if(offLo>=0||offHi>=0) break;
+      }
+      if(offLo>=0||offHi>=0) endZ = offLo>=0?offLo:offHi; else { endZ=Math.max(offMinL,offMaxH); cutZ = lim<L; }
+    }
+  }
+  const zStart = kL>=0 ? L-Math.max(spanL,endZ)-OBSRC : 0;
+  const inWin = z => z.left>=zStart;
+
+  // profili di volume (V1..V3 sugli swing, Vext sulla finestra estesa) in modalità "Nodes"
+  function buildProf(endOff,pLo,pHi){
+    const vb=Math.max(VOLBIN_ATR*atrC,(pHi-pLo)/500), nb=Math.max(1,Math.ceil((pHi-pLo)/vb)), prof=new Array(nb).fill(0);
+    for(let off=1;off<=Math.max(1,endOff);off++){
+      const ix=L-off; if(ix<0) break;
+      const bh=h[ix], bl=l[ix], bv=v[ix]||0;
+      if(bv>0 && bh>=pLo && bl<=pHi){
+        if(bh>bl){
+          const ch=Math.min(bh,pHi), cl=Math.max(bl,pLo);
+          const bA=Math.max(0,Math.min(nb-1,Math.floor((cl-pLo)/vb))), bB=Math.max(0,Math.min(nb-1,Math.floor((ch-pLo)/vb)));
+          for(let bi=bA;bi<=bB;bi++){ const bBot=pLo+bi*vb, ov=Math.min(ch,bBot+vb)-Math.max(cl,bBot); if(ov>0) prof[bi]+=bv*ov/(bh-bl); }
+        } else { const bi=Math.max(0,Math.min(nb-1,Math.floor((bl-pLo)/vb))); prof[bi]+=bv; }
+      }
+    }
+    const hw=Math.max(1,Math.round(HVNWIN*atrC/vb)), raw=prof.slice();
+    for(let bi=0;bi<nb;bi++){ const qa=Math.max(0,bi-hw), qb=Math.min(nb-1,bi+hw); let sm=0; for(let q=qa;q<=qb;q++) sm+=raw[q]; prof[bi]=Math.max(0,raw[bi]-sm/(qb-qa+1)); }
+    let mx=0; for(const x of prof) if(x>mx) mx=x; if(mx>0) for(let bi=0;bi<nb;bi++) prof[bi]/=mx;
+    return {prof,vb,nb,pLo};
+  }
+  const volAt=(P,cc,t)=>{ let r=0; const a=cc-t,b=cc+t; if(P.nb>0 && b>=P.pLo && a<=P.pLo+P.nb*P.vb){ const bA=Math.max(0,Math.floor((a-P.pLo)/P.vb)), bB=Math.min(P.nb-1,Math.floor((b-P.pLo)/P.vb)); for(let i=bA;i<=bB;i++) r=Math.max(r,P.prof[i]); } return r; };
+  const volEnd=[0,0,0,0], volOn=[false,false,false,false], vLo=[0,0,0,0], vHi=[0,0,0,0], volDup=[-1,-1,-1,-1];
+  for(let k=0;k<3;k++) if(active[k]){ volEnd[k]=Math.min(L-sw[k].anchor,VOLMAX-1); volOn[k]=true; vLo[k]=sw[k].l; vHi[k]=sw[k].h; }
+  if(endZ>=0 && fLo!=null){ volEnd[3]=endZ; volOn[3]=true; vLo[3]=fLo; vHi[3]=fHi; }
+  for(let k=1;k<4;k++){
+    for(let m=0;m<k;m++) if(volOn[k]&&volOn[m]&&volDup[k]<0){ const s=Math.min(volEnd[k],volEnd[m])+1, lg=Math.max(volEnd[k],volEnd[m])+1; if(s/lg*100>=VOLDUP) volDup[k]=m; }
+    if(volDup[k]>=0) volOn[k]=false;
+  }
+  const profs=[null,null,null,null], volL=[0,1,2,3].map(()=>new Array(N).fill(0));
+  const hasVol = v.slice(0,L+1).some(x=>x>0);   // solo barre chiuse: il volume della sola candela in formazione non conta
+  for(let k=0;k<4;k++){ if(!volOn[k]||!hasVol) { volOn[k]=false; continue; } profs[k]=buildProf(volEnd[k],vLo[k],vHi[k]);
+    for(let r=0;r<N;r++) volL[k][r]=volAt(profs[k], lo+(r+0.5)*rh, tR); }
+
+  // corsie Fib / OB / FVG
+  const fibL=[0,1,2].map(()=>new Array(N).fill(0));
+  for(let j=0;j<lvP.length;j++){ const p=lvP[j]; if(p+tol>=lo && p-tol<hi){ const [rA,rB]=rowsIn(p-tol,p+tol); for(let r=rA;r<=rB;r++) fibL[lvK[j]][r]=1; } }
+  const obBull=new Array(N).fill(0), obBear=new Array(N).fill(0), fvBull=new Array(N).fill(0), fvBear=new Array(N).fill(0);
+  const zonesToLane=(zs,bu,be)=>{ for(const z of zs){ if(!inWin(z)) continue; const zb=z.bot-tol, zt=z.top+tol; if(zt>lo && zb<hi){ const [rA,rB]=rowsIn(zb,zt); for(let r=rA;r<=rB;r++){ if(z.bull) bu[r]=1; else be[r]=1; } } } };
+  zonesToLane(obZ,obBull,obBear); zonesToLane(fvZ,fvBull,fvBear);
+
+  // somma di confluenza per riga
+  const sArr=new Array(N).fill(0); let sMax=0;
+  for(let r=0;r<N;r++){
+    let s=0; for(let k=0;k<3;k++) s+=fibL[k][r]*S.wFib;
+    s+=Math.max(obBull[r],obBear[r])*S.wOB + Math.max(fvBull[r],fvBear[r])*S.wFVG;
+    for(let k=0;k<4;k++) s+=volL[k][r]*S.wVol;
+    sArr[r]=s; if(s>sMax) sMax=s;
+  }
+  const compsAt=r=>{ const t=[]; for(let k=0;k<3;k++) if(fibL[k][r]>0) t.push('F'+(k+1)); if(obBull[r]>0) t.push('OB↑'); if(obBear[r]>0) t.push('OB↓'); if(fvBull[r]>0) t.push('FVG↑'); if(fvBear[r]>0) t.push('FVG↓');
+    ['V1','V2','V3','Vext'].forEach((nm,k)=>{ if(volL[k][r]>=0.5) t.push(nm); }); return t.join(' · '); };
+
+  // confluenza esattamente al prezzo (come l'etichetta dello script)
+  const c0=c[L]; let curScore=0; const curC=[];
+  for(let k=0;k<3;k++){ let hit=false; for(let j=0;j<lvP.length;j++) if(lvK[j]===k && Math.abs(lvP[j]-c0)<=tol){ hit=true; break; } if(hit&&S.wFib>0){ curScore+=S.wFib; curC.push('F'+(k+1)); } }
+  const zAt=zs=>{ let bu=false,be=false; for(const z of zs){ if(inWin(z)&&c0>=z.bot-tol&&c0<=z.top+tol){ if(z.bull) bu=true; else be=true; } } return [bu,be]; };
+  const [obU,obE]=zAt(obZ), [fvU,fvE]=zAt(fvZ);
+  if(obU||obE){ curScore+=S.wOB; curC.push(obU?'OB↑':'OB↓'); } if(fvU||fvE){ curScore+=S.wFVG; curC.push(fvU?'FVG↑':'FVG↓'); }
+  ['V1','V2','V3','Vext'].forEach((nm,k)=>{ if(volOn[k]){ const x=volAt(profs[k],c0,tol); curScore+=x*S.wVol; if(x>=0.5) curC.push(nm); } });
+
+  // ---- direzione: la colonna Σ dello script, colorata per lato ----
+  // sotto il prezzo = supporto (verde), sopra il prezzo = resistenza (rosso); la riga del prezzo è neutra
+  let below=0, above=0;
+  for(let r=0;r<N;r++){ if(r<rc) below+=sArr[r]; else if(r>rc) above+=sArr[r]; }
+  const pos = (below+above)>0 ? (below-above)/(below+above)*100 : null;
+
+  // livelli più forti (massimi locali) sopra e sotto il prezzo, entro il raggio
+  const levels=[];
+  for(let r=0;r<N;r++){
+    if(r===rc||sArr[r]<=0) continue;
+    if((r>0&&sArr[r-1]>sArr[r])||(r<N-1&&sArr[r+1]>sArr[r])) continue;
+    const price=lo+(r+0.5)*rh, d=(price-cRef)/atrC;
+    levels.push({price,d,score:sArr[r],comps:compsAt(r),above:r>rc});
+  }
+  return { live:c[n], atrC, tol, cRef, c0, lo, hi, rh, N, rc, sArr, sMax, pos, below, above,
+           curScore, curComps:curC.join(' · '), levels, active, sw, dup, nOB:obZ.filter(inWin).length, nFVG:fvZ.filter(inWin).length, volOn, hasVol, endZ, cutZ };
+}
+
+// =====================================================================
+//  Interfaccia
+// =====================================================================
+function readSettings(){
+  const S={};
+  ADV.forEach(a=>{ const x=parseFloat($('a_'+a[0]).value); S[a[0]] = isFinite(x)&&x>=0 ? x : a[2]; });
+  ['atrLen','len1','len2','len3','obLen'].forEach(k=>{ S[k]=Math.max(1,Math.round(S[k])); });
+  S.tol=Math.max(0.01,S.tol);
+  let r=$('ratios').value.split(',').map(x=>parseFloat(x.trim())).filter(x=>isFinite(x));
+  S.ratios = r.length ? r : DEF_RATIOS.split(',').map(Number);
+  S.N=Math.max(1,Math.min(20,parseInt($('conf').value)||1));
+  return S;
+}
+let zh=[], zhKey='', LOG=null;
+// la storia delle conferme sopravvive al ricaricamento se l'ultima barra salvata ha meno di 30 minuti
+function loadZh(key){ try{ const o=JSON.parse(store.get('cf_zh_'+key)); if(o&&Array.isArray(o.zh)&&o.zh.length){ if(Date.now()/1000-o.zh[o.zh.length-1].t<1800) return o.zh; } }catch(e){} return null; }
+function loadLog(key){ try{ const o=JSON.parse(store.get('cf_log_'+key)); if(o&&Array.isArray(o.items)) return o; }catch(e){} return {key,n:null,last:null,items:[]}; }
+function renderLog(){
+  const intra=$('mode').value==='i', tz=intra?'Europe/Rome':'America/New_York', items=(LOG&&LOG.items)||[];
+  const NM={'-1':['SHORT','r'],'0':['NEUTRA','y'],'1':['LONG','g']};
+  $('logtbl').innerHTML = items.length
+    ? '<tr><th>Barra</th><th>Prezzo</th><th>Posizione</th><th>Nuova zona</th></tr>'+items.slice().reverse().map(e=>`<tr><td>${new Date(e.t*1000).toLocaleString('it-IT',{timeZone:tz})}</td><td>${fmt(e.price)}</td><td>${e.pos>0?'+':''}${e.pos}</td><td class="${NM[String(e.z)][1]}" style="text-align:left;font-weight:600">${NM[String(e.z)][0]}</td></tr>`).join('')
+    : '<tr><td class="m" style="text-align:left">Nessun cambio di zona confermato finora.</td></tr>';
+}
+function confirmZone(list,N){
+  let cur=null,cand=null,cnt=0;
+  for(const e of list){ const z=e.z;
+    if(z==null){ cur=null; cand=null; cnt=0; }   // buco o dati non validi: la sequenza riparte da zero, nessuna zona resta confermata
+    else if(z===cur){ cand=null; cnt=0; }   // anche la prima zona richiede N barre chiuse consecutive (cur parte da null); una barra diversa, neutra inclusa, azzera il candidato
+    else { if(z===cand) cnt++; else { cand=z; cnt=1; } if(cnt>=N){ cur=z; cand=null; cnt=0; } }
+  }
+  return {cur, pend: cand==null?null:{z:cand,k:cnt}};
+}
+
+const sg = x => x==null ? 'n/d' : (x>0?'+':'')+Math.round(x);
+function render(R,S,tBar){
+  const pos = R.pos;
+  if(pos==null){ $('st').textContent='Nessuna confluenza nel profilo: direzione non calcolabile.'; return; }
+  const zr = pos<=-33?-1:pos>=33?1:0;
+  const key=[$('sym').value.trim().toUpperCase(),$('mode').value].join('|');
+  if(key!==zhKey){ const rz=loadZh(key); zh=rz||[]; zhKey=key; LOG=loadLog(key); if(!rz) LOG.last=null; }
+  if(LOG.n!==S.N){ LOG.last=null; LOG.n=S.N; }   // cambiando N la zona confermata può cambiare senza che sia un vero segnale
+  if(zh.length && zh[zh.length-1].t===tBar) zh[zh.length-1].z=zr; else zh.push({t:tBar,z:zr}); zh[zh.length-1].p=pos; if(zh.length>300) zh.shift();
+  // tBar = timestamp dell'ultima barra CHIUSA: ogni voce di zh è una barra chiusa
+  const cf=confirmZone(zh,S.N), prov=cf.cur==null, curZ=prov?zr:cf.cur;
+  if(!prov){
+    if(LOG.last!=null && LOG.last!==cf.cur){ LOG.items.push({t:tBar,price:R.c0,z:cf.cur,pos:Math.round(pos)}); if(LOG.items.length>50) LOG.items.shift(); }
+    LOG.last=cf.cur;
+  }
+  LOG.key=key; store.set('cf_log_'+key,JSON.stringify(LOG)); store.set('cf_zh_'+key,JSON.stringify({zh}));
+  const score=Math.round((pos+100)/2);
+  $('turtle').style.left=score+'%';
+  const ZN={'-1':['ZONA SHORT','r'],'0':['ZONA NEUTRA','y'],'1':['ZONA LONG','g']}, z=ZN[String(curZ)]||ZN['0'];
+  const p=Math.round(pos);
+  $('zone').className=z[1]; $('zone').textContent=z[0]+(prov?' (provvisoria)':'')+' ('+(p>0?'+':'')+p+')  ·  punteggio '+score+'/100';
+  const live = (!prov && zr!==cf.cur) ? ' · barra in formazione: '+ZN[String(zr)][0].replace('ZONA ','') : '';
+  const pend = (cf.pend ? ' · in attesa di conferma → '+ZN[String(cf.pend.z)][0].replace('ZONA ','')+' ('+cf.pend.k+'/'+S.N+')' : '')+live;
+  $('parts').textContent = 'Supporto (confluenza sotto il prezzo): '+fmt(R.below,1)+' · Resistenza (sopra il prezzo): '+fmt(R.above,1)+pend;
+  $('cur').textContent = 'Confluenza al prezzo: '+fmt(R.curScore,1)+(R.curComps?' ('+R.curComps+')':'')+' · ATR '+fmt(R.atrC,3);
+  const row=(l)=>`<tr><td>${fmt(l.price)}</td><td>${(l.d>0?'+':'')+fmt(l.d,1)}</td><td class="${l.above?'r':'g'}">${fmt(l.score,1)}</td><td>${l.comps||'—'}</td></tr>`;
+  const up=R.levels.filter(l=>l.above).sort((a,b)=>b.score-a.score).slice(0,4).sort((a,b)=>a.price-b.price);
+  const dn=R.levels.filter(l=>!l.above).sort((a,b)=>b.score-a.score).slice(0,4).sort((a,b)=>b.price-a.price);
+  $('tbl').innerHTML='<tr><th>Livello più forte</th><th>Dist. (ATR)</th><th>Confluenza</th><th>Componenti</th></tr>'
+    + (up.length?'<tr><td colspan="4" class="r" style="text-align:left;font-size:11px">Resistenze sopra il prezzo</td></tr>'+up.map(row).join(''):'')
+    + (dn.length?'<tr><td colspan="4" class="g" style="text-align:left;font-size:11px">Supporti sotto il prezzo</td></tr>'+dn.map(row).join(''):'');
+  $('note').textContent = 'Direzione dalla colonna «Confluence» dello script: somma, riga per riga, di Fibonacci, Order Block, FVG e volume. Come nello script, la confluenza sotto il prezzo è supporto (verde) e quella sopra è resistenza (rossa). Posizione = (supporto − resistenza) / (supporto + resistenza), da −100 a +100; zona short ≤ −33, long ≥ +33. La griglia è centrata sull’ultima chiusura (come nello script), mentre «Confluenza al prezzo» usa il prezzo corrente. La conferma conta solo barre già chiuse osservate mentre la pagina è aperta (l’ultima, in formazione, è provvisoria); storico e registro sono separati per simbolo e timeframe e vengono ripresi dopo un ricaricamento se l’ultima barra salvata ha meno di 30 minuti.';
+  $('out').style.display='block'; $('out').style.opacity='1';
+  renderLog();
+  renderTrend(R);
+  renderExtra(R,S,tBar);
+  draw(R,S);
+}
+
+function draw(R,S){
+  const cv=$('cv'), dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight;
+  cv.width=W*dpr; cv.height=H*dpr; const c=cv.getContext('2d'); c.scale(dpr,dpr);
+  const css=getComputedStyle(document.documentElement), gc=css.getPropertyValue('--g').trim()||'#3ddc84', rc_=css.getPropertyValue('--r').trim()||'#ff5c5c', mu=css.getPropertyValue('--mu').trim()||'#888', tx=css.getPropertyValue('--tx').trim()||'#fff';
+  const span=6*R.atrC, pLo=Math.max(R.lo,R.cRef-span), pHi=Math.min(R.hi,R.cRef+span);
+  const X0=58, X1=W-8, y=p=>6+(pHi-p)/(pHi-pLo)*(H-14);
+  c.font='11px sans-serif'; c.textBaseline='middle';
+  for(let r=0;r<R.N;r++){
+    const top=R.lo+(r+1)*R.rh, bot=R.lo+r*R.rh; if(top<pLo||bot>pHi||R.sArr[r]<=0||R.sMax<=0) continue;
+    const w=R.sArr[r]/R.sMax*(X1-X0); c.globalAlpha=.75; c.fillStyle = r<R.rc?gc:r>R.rc?rc_:mu;
+    c.fillRect(X0,y(Math.min(top,pHi)),w,Math.max(1,y(Math.max(bot,pLo))-y(Math.min(top,pHi))));
+  }
+  c.globalAlpha=1;
+  const ticks=5; for(let i=0;i<=ticks;i++){ const p=pLo+(pHi-pLo)*i/ticks; c.fillStyle=mu; c.fillText(p.toFixed(2),2,y(p)); }
+  c.strokeStyle=tx; c.setLineDash([4,3]); c.beginPath(); c.moveTo(X0,y(R.cRef)); c.lineTo(X1,y(R.cRef)); c.stroke(); c.setLineDash([]);
+  c.fillStyle=tx; c.fillText(R.cRef.toFixed(2),X1-44,y(R.cRef)-8);
+}
+
+// =====================================================================
+//  Trend del momento: confluenza + swing + momentum, da −100 a +100
+// =====================================================================
+function trendRead(B,R,intra){
+  const c=B.c, L=c.length-1, atr=R.atrC, comps=[];
+  if(R.pos!=null) comps.push({nm:'Confluenza',s:R.pos/100,w:.30,txt:R.pos>15?'più confluenza sotto il prezzo (supporto)':R.pos<-15?'più confluenza sopra il prezzo (resistenza)':'supporto e resistenza in equilibrio'});
+  const SWN=['breve','medio','lungo'], SWW=[3,2,1]; let sn=0, sd=0; const ar=[];
+  R.sw.forEach((s,k)=>{ if(!R.active[k]) return; sn+=(s.z?1:-1)*SWW[k]; sd+=SWW[k]; ar.push(SWN[k]+(s.z?' ↑':' ↓')); });
+  if(sd) comps.push({nm:'Swing',s:sn/sd,w:.20,txt:ar.join(' · ')});
+  (intra?[15,60]:[5,20]).forEach((M,i)=>{
+    if(L-1<M) return;
+    const xm=(M-1)/2; let ym=0; for(let j=0;j<M;j++) ym+=c[L-M+j]; ym/=M;
+    let sxy=0, sxx=0; for(let j=0;j<M;j++){ sxy+=(j-xm)*(c[L-M+j]-ym); sxx+=(j-xm)*(j-xm); }
+    const move=sxy/sxx*(M-1), z=move/(atr*Math.sqrt(M));   // spostamento della retta di regressione, in ATR
+    comps.push({nm:'Momentum '+(i?'medio':'breve')+' ('+M+' barre)',s:Math.tanh(z/1.2),w:i?.20:.30,mom:true,txt:(move>0?'+':'')+fmt(move/atr,1)+' ATR sulla retta di regressione'});
+  });
+  if(!comps.length) return null;
+  let sw_=0, tot=0; comps.forEach(x=>{ sw_+=x.w; tot+=x.w*x.s; });
+  const T=tot/sw_*100, sT=Math.sign(T);
+  const agree=comps.filter(x=>Math.abs(x.s)>.15 && Math.sign(x.s)===sT).length;
+  const cf=comps.find(x=>x.nm==='Confluenza'), ms=comps.filter(x=>x.mom);
+  const mAvg=ms.length?ms.reduce((a,x)=>a+x.s,0)/ms.length:0;
+  const div=!!(cf && ms.length && cf.s*mAvg<0 && Math.abs(cf.s)>.25 && Math.abs(mAvg)>.25);
+  return {T,comps,agree,n:comps.length,div};
+}
+let TS={key:'',v:0,since:null};
+function renderTrend(R){
+  const t=R.trend; if(!t) return;
+  const key=[$('sym').value.trim().toUpperCase(),$('mode').value].join('|');
+  if(TS.key!==key) TS={key,v:0,since:Date.now()};
+  const T=t.T; let v=TS.v;   // isteresi: si entra a ±30 e si esce a ±15, così il verdetto non salta a ogni aggiornamento
+  if(v===0){ if(T>=30) v=1; else if(T<=-30) v=-1; }
+  else if(v===1){ if(T<=-30) v=-1; else if(T<15) v=0; }
+  else { if(T>=30) v=1; else if(T>-15) v=0; }
+  if(v!==TS.v){ TS.v=v; TS.since=Date.now(); }
+  const cls=v>0?'g':v<0?'r':'y', mins=Math.floor((Date.now()-TS.since)/60000), a=Math.abs(T);
+  const str=a>=60?'forte':a>=30?'moderato':'debole';
+  $('tv').className=cls;
+  $('tv').textContent = v>0?'▲ RIALZO'+' '+str : v<0?'▼ RIBASSO'+' '+str : '◆ LATERALE / INCERTO';
+  $('tsub').textContent = 'punteggio '+sg(T)+' su ±100 · concordanza '+t.agree+'/'+t.n+' · '+(mins>=1?'da '+mins+' min':'appena rilevato');
+  const f=$('tfill'); f.style.left=(50+Math.min(0,T)/2)+'%'; f.style.width=(a/2)+'%'; f.style.background=T>=0?'var(--g)':'var(--r)';
+  const cc=s=>s>.15?'g':s<-.15?'r':'y';
+  $('ttbl').innerHTML='<tr><th>Componente</th><th>Valore</th><th>Lettura</th></tr>'+t.comps.map(x=>`<tr><td>${x.nm} <span class="m">(${Math.round(x.w*100)}%)</span></td><td class="${cc(x.s)}">${sg(x.s*100)}</td><td>${x.txt}</td></tr>`).join('');
+  $('tnote').textContent = (t.div?'⚠ Il momentum va contro la struttura della confluenza: possibile pullback o inversione. ':'')
+    + 'Punteggio = media pesata di confluenza (supporto − resistenza), direzione degli swing (breve pesa di più) e pendenza del prezzo su due finestre, ognuna normalizzata in ATR. Sopra +30 rialzo, sotto −30 ribasso, in mezzo laterale (si torna laterale a ±15). «Da quanti minuti» conta da quando la pagina è aperta.';
+}
+
+// =====================================================================
+//  Struttura, volume, pressione, segnali: solo barre CHIUSE (l'ultima è in formazione) → nessun look-ahead
+// =====================================================================
+function mergeLevels(lv,atr){   // livelli entro 0,25 ATR = stessa zona: resta il più forte, i punteggi non si sommano
+  const o=[]; lv.slice().sort((a,b)=>a.price-b.price).forEach(l=>{ const q=o[o.length-1]; if(q&&Math.abs(l.price-q.price)<.25*atr){ if(l.score>q.score) o[o.length-1]=l; } else o.push(l); }); return o;
+}
+function structure(B,len,atr){
+  const h=B.h,l=B.l,c=B.c,L=c.length-2,H=[],Lo=[];
+  for(let p=len;p+len<=L;p++){
+    let ph=true,pl=true;
+    for(let j=p-len;j<=p+len&&(ph||pl);j++){ if(j===p) continue;
+      if(j<p?!(h[p]>h[j]):!(h[p]>=h[j])) ph=false;
+      if(j<p?!(l[p]<l[j]):!(l[p]<=l[j])) pl=false; }
+    if(ph) H.push({i:p,v:h[p]}); if(pl) Lo.push({i:p,v:l[p]});
+  }
+  if(H.length<2||Lo.length<2) return null;
+  const h1=H[H.length-1],h0=H[H.length-2],l1=Lo[Lo.length-1],l0=Lo[Lo.length-2], hh=h1.v>h0.v, hl=l1.v>l0.v;
+  const trend=hh&&hl?1:(!hh&&!hl?-1:0), cl=c[L], md=atr?.1*atr:0, cfm=c[L+1]; let ev='—';   // rottura valida: chiusura oltre il pivot di almeno 0,1 ATR
+  if(cl>h1.v+md) ev=trend<0?'CHoCH ↑':'BOS ↑'; else if(cl<l1.v-md) ev=trend>0?'CHoCH ↓':'BOS ↓';
+  const fm=ev!=='—'?'':cfm>h1.v+md?'↑':cfm<l1.v-md?'↓':'';   // barra in formazione oltre il livello: non ancora confermata
+  const c1=c[L-1], cf2=ev.endsWith('↑')?c1>h1.v+md:ev.endsWith('↓')?c1<l1.v-md:false;   // CHoCH confermato solo con 2 chiusure consecutive oltre il livello
+  const state=/CHoCH/.test(ev)?(cf2?'inversione confermata':'possibile inversione'):trend>0?'struttura rialzista':trend<0?'struttura ribassista':'struttura laterale';
+  const score=Math.max(-100,Math.min(100,trend*60+(ev.endsWith('↑')?40:ev.endsWith('↓')?-40:0)));
+  return {len,trend,ev,fm,state,score,lbl:(hh?'HH':'LH')+' · '+(hl?'HL':'LL'),sh:h1.v,sl:l1.v};
+}
+function volProfile(B,win){
+  const n=B.c.length-1,a=Math.max(0,n-win),nb=60; let lo=Infinity,hi=-Infinity;
+  for(let i=a;i<n;i++){ lo=Math.min(lo,B.l[i]); hi=Math.max(hi,B.h[i]); }
+  if(!(hi>lo)) return null;
+  const bs=(hi-lo)/nb,pr=new Array(nb).fill(0); let tot=0;
+  for(let i=a;i<n;i++){ const v=B.v[i]; if(!(v>0)) continue;
+    const r=B.h[i]-B.l[i],i0=Math.min(nb-1,Math.floor((B.l[i]-lo)/bs)),i1=Math.min(nb-1,Math.floor((B.h[i]-lo)/bs));
+    for(let k=i0;k<=i1;k++){ const ov=r>0?(Math.min(B.h[i],lo+(k+1)*bs)-Math.max(B.l[i],lo+k*bs))/r:1/(i1-i0+1); if(ov>0){ pr[k]+=v*ov; tot+=v*ov; } } }
+  if(!(tot>0)) return null;
+  let pc=0; pr.forEach((x,k)=>{ if(x>pr[pc]) pc=k; });
+  let ia=pc,ib=pc,s=pr[pc];
+  while(s<.7*tot&&(ia>0||ib<nb-1)){ const dn=ia>0?pr[ia-1]:-1,up=ib<nb-1?pr[ib+1]:-1; if(up>=dn){ ib++; s+=pr[ib]; } else { ia--; s+=pr[ia]; } }
+  const mean=tot/nb,hvn=[],lvn=[]; for(let q=1;q<nb-1;q++){ if(pr[q]>=pr[q-1]&&pr[q]>=pr[q+1]&&pr[q]>1.3*mean) hvn.push(lo+(q+.5)*bs); if(pr[q]<=pr[q-1]&&pr[q]<=pr[q+1]&&pr[q]<.5*mean&&q>ia&&q<ib) lvn.push(lo+(q+.5)*bs); }
+  let m=0,k=0; for(let i=Math.max(0,n-21);i<n-1;i++){ m+=B.v[i]; k++; }
+  return {hvn,lvn,poc:lo+(pc+.5)*bs,vah:lo+(ib+1)*bs,val:lo+ia*bs,rvol:k&&m>0?B.v[n-1]/(m/k):null};
+}
+let PINFO={mode:'n/d',used:0,skipped:0};
+function pressure(B,M){   // stima da OHLCV, NON è delta bid/ask. Volume mancante = barra esclusa (non vale zero); volume anomalo limitato a 3× mediana
+  const n=B.c.length-2, a=Math.max(0,n-M+1), vs=[]; for(let i=a;i<=n;i++) if(B.v[i]>0) vs.push(B.v[i]);
+  const hasV=vs.length>=M/2, med=hasV?vs.slice().sort((p,q)=>p-q)[vs.length>>1]:0; let sn=0,sd=0,sk=0,us=0;
+  for(let i=a;i<=n;i++){ const r=B.h[i]-B.l[i]; let w=1; if(hasV){ if(!(B.v[i]>0)){ sk++; continue; } w=Math.min(B.v[i],3*med); }
+    sn+=w*(r>0?((B.c[i]-B.l[i])-(B.h[i]-B.c[i]))/r:0); sd+=w; us++; }
+  PINFO={mode:hasV?'volume effettivo':'pesi uniformi',used:us,skipped:sk};
+  return sd>0?Math.max(-100,Math.min(100,sn/sd*200)):null;
+}
+function extra(B,R,S,intra){
+  const t=R.trend, st=structure(B,S.len2,R.atrC)||structure(B,S.len1,R.atrC)||structure(B,Math.max(2,Math.round(S.len1/2)),R.atrC), ss=structure(B,S.len1,R.atrC), vp=volProfile(B,intra?390:120), pr=pressure(B,20), pinfo={...PINFO};
+  const ms=t?t.comps.filter(x=>x.mom):[], mAvg=ms.length?ms.reduce((a,x)=>a+x.s,0)/ms.length:0;
+  const parts=[[st?st.score:null,.35],[t?t.T:null,.40],[pr,.25]].filter(p=>p[0]!=null);
+  const tot=parts.length?parts.reduce((a,p)=>a+p[0]*p[1],0)/parts.reduce((a,p)=>a+p[1],0):null;
+  return {pinfo,st,ss,vp,pr,ms,mAvg,sS:st?st.score:null,sO:t?t.T:null,tot,hasV:closedHasV(B)};
+}
+function evalSignal(R,x){
+  const st=x.st, dq=R.dq, base={side:0,miss:[]};
+  if(!dq.ok) return {...base,state:'BLOCKED',setup:'BLOCCATO: dati non validi ('+dq.why+')'};
+  if(!st||!R.trend||R.pos==null) return {...base,state:'INSUFF',setup:'DATI INSUFFICIENTI: struttura o confluenza non calcolabili (pochi pivot o barre)'};
+  const T=R.trend.T, a=R.atrC, c0=R.cRef, thr=Math.max(1.5,.4*R.sMax), M=R.mtf?Object.fromEntries(R.mtf.rows.map(r=>[r.tf,r])):null;
+  if(!M) return {...base,state:'BLOCKED',setup:'BLOCCATO: modalità giornaliera, il multi-timeframe non è disponibile: nessun segnale operativo'};
+  if(M){ const ms=['1H','15M','5M'].filter(k=>!M[k]||M[k].score==null); if(ms.length) return {...base,state:'BLOCKED',setup:'BLOCCATO: timeframe mancante ('+ms.map(k=>k+(M[k]&&M[k].err?': '+M[k].err:'')).join(', ')+')'}; }
+  const by=f=>R.levels.filter(f).sort((p,q)=>Math.abs(p.d)-Math.abs(q.d))[0], DT=d=>d>0?'LONG':'SHORT';
+  const res=[1,-1].map(d=>{
+    const miss=[], ctr=[]; let tfR=null, nC=0; const chk=(ok,txt,tf)=>{ nC++; if(!ok){ miss.push(txt); if(!tfR) tfR=tf; } };
+    chk(d*st.trend>0||st.ev===(d>0?'CHoCH ↑':'CHoCH ↓'),'struttura non '+(d>0?'rialzista':'ribassista')+' ('+st.state+')','1M');
+    chk(d*T>=30,'trend operativo '+sg(T)+' (serve '+(d>0?'≥ +30':'≤ −30')+')','1M');
+    if(M){ const s1=M['1H'].score,s15=M['15M'].score,s5=M['5M'].score;
+      nC+=2; if(d*s15<-15) ctr.push('15M contrario ('+sg(s15)+')'); if(d*s1<-15) ctr.push('1H contrario ('+sg(s1)+')');
+      chk(d*s15>15,'15M non conferma ('+sg(s15)+', serve '+(d>0?'> +15':'< −15')+')','15M');
+      chk(d*s5>15,'5M non conferma ('+sg(s5)+', serve '+(d>0?'> +15':'< −15')+')','5M');
+      chk(d*(s1+s15+s5)>0,'direzione dei TF superiori non concorde','1H'); }
+    chk(d*x.mAvg>.15,'momentum non coerente ('+sg(x.mAvg*100)+')','1M');
+    chk(d*R.pos>15,'confluenza insufficiente ('+sg(R.pos)+')','1M');
+    const lv=by(l=>(d>0?!l.above:l.above)&&l.score>=thr), op=by(l=>(d>0?l.above:!l.above)&&l.score>=thr), near=lv&&Math.abs(lv.d)<=1;
+    chk(near,(d>0?'nessun supporto':'nessuna resistenza')+' forte entro 1 ATR','1M');
+    const risk=near?Math.max(Math.abs(c0-lv.price)+.25*a,1*a):null;   // stop oltre il livello e mai sotto 1 ATR
+    if(near){ nC++; if(op&&Math.abs(op.price-c0)<1.5*risk+.25*a) ctr.push('zona contraria a '+fmt(Math.abs(op.price-c0)/risk,2)+'R: servono almeno 1,5R più un margine di 0,25 ATR per il Target 1'); }
+    return {d,miss,ctr,tfR,lv,op,risk,nC};
+  });
+  const ok=res.filter(q=>!q.ctr.length), sfx=res.filter(q=>q.ctr.length).map(q=>' · '+DT(q.d)+' bloccato ('+q.ctr.join(', ')+')').join('');   // un blocco non è una condizione mancante: il lato bloccato non viene scelto
+  if(!ok.length) return {...base,state:'BLOCKED',setup:'BLOCCATO:'+sfx.replace(/^ · /,' ')};
+  let r=ok.length===1?ok[0]:ok[0].miss.length<ok[1].miss.length?ok[0]:ok[1].miss.length<ok[0].miss.length?ok[1]:(T>=0?ok[0]:ok[1]);
+  if(r.miss.length>2) return {...base,state:'NEUTRAL',setup:'NEUTRAL: '+r.miss.length+' verifiche su '+r.nC+' non soddisfatte per '+DT(r.d)+sfx};
+  if(r.miss.length) return {...base,state:'PRE',pd:r.d,miss:r.miss,tfR:r.tfR,watch:r.lv?(r.d>0?'supporto ':'resistenza ')+fmt(r.lv.price):(r.d>0?'rottura sopra ':'rottura sotto ')+fmt(r.d>0?st.sh:st.sl),setup:'PRE-ALERT '+DT(r.d)+': manca '+r.miss.join('; ')+sfx};
+  const d=r.d, lv=r.lv, op=r.op, risk=r.risk, sl=c0-d*risk;
+  return {side:d,state:'READY',entry:c0,sl,t1:c0+d*1.5*risk,t2:c0+d*3*risk,opp:op?op.price:null,inv:'chiusura '+(d>0?'sotto ':'sopra ')+fmt(sl),miss:[],
+    con:[...R.trend.comps.filter(c=>d*c.s<-.15).map(c=>c.nm),d*x.pr<-15?'pressione stimata':null,...(R.mtf?R.mtf.rows.filter(q=>q.score!=null&&d*q.score<-15).map(q=>'TF '+q.tf):[])].filter(Boolean).join(', '),
+    why:'struttura '+st.lbl+(st.ev!=='—'?' ('+st.ev+')':'')+' · confluenza '+sg(R.pos)+' · operativo '+sg(T)+' · momentum '+sg(x.mAvg*100)+(M?' · 1H '+sg(M['1H'].score)+' · 15M '+sg(M['15M'].score)+' · 5M '+sg(M['5M'].score):'')+' · '+(d>0?'supporto ':'resistenza ')+fmt(lv.price)+' a '+fmt(Math.abs(lv.d),1)+' ATR'};
+}
+function warns(R,x,ph){
+  const w=[], st=x.st, thr=Math.max(1.5,.4*R.sMax), m=x.ms;
+  if(ph.length>=10){ const dp=R.pos-ph[ph.length-10]; if(dp>=20) w.push('confluenza rialzista in crescita ('+sg(dp)+' in 10 barre)'); if(dp<=-20) w.push('confluenza ribassista in crescita ('+sg(dp)+' in 10 barre)'); }
+  if(st&&st.trend!==0&&st.trend*x.mAvg<-.25) w.push('divergenza: struttura '+(st.trend>0?'rialzista':'ribassista')+' ma momentum contrario');
+  const nr=R.levels.find(l=>Math.abs(l.d)<=.5&&l.score>=thr); if(nr) w.push('prezzo vicino a '+(nr.above?'resistenza':'supporto')+' forte '+fmt(nr.price)+' ('+fmt(Math.abs(nr.d),1)+' ATR)');
+  if(m.length===2&&Math.abs(m[1].s)>.4&&m[1].s*m[0].s>0&&Math.abs(m[0].s)<.4*Math.abs(m[1].s)) w.push('possibile esaurimento: momentum breve molto più debole del medio');
+  if(st&&/CHoCH/.test(st.ev)) w.push('possibile inversione: '+st.ev+' sulla struttura principale');
+  if(R.mtf){ const up=R.mtf.rows.filter(r=>r.score>15).map(r=>r.tf), dn=R.mtf.rows.filter(r=>r.score<-15).map(r=>r.tf); if(up.length&&dn.length) w.push('disallineamento multi-timeframe: rialzisti '+up.join('/')+' contro ribassisti '+dn.join('/')); }
+  if(st&&/BOS/.test(st.ev)) w.push('rottura di struttura '+st.ev+': chiusura oltre il pivot principale');
+  return w;
+}
+function parseBars(res){   // validazione comune a ogni timeframe: un OHLC incompleto scarta la barra, non viene completato con la chiusura
+  const ts=res.timestamp||[], q=res.indicators.quote[0], B={t:[],o:[],h:[],l:[],c:[],v:[]}, cnt={nNull:0,nDup:0,nFut:0,nBad:0,nMiss:0,nTs:0}, fin=x=>x!=null&&isFinite(x);
+  ts.forEach((t,i)=>{
+    if(!fin(t)||t<=0){ cnt.nTs++; return; }
+    const o=q.open&&q.open[i], h=q.high&&q.high[i], l=q.low&&q.low[i], c=q.close&&q.close[i];
+    if(!fin(c)){ cnt.nNull++; return; }
+    if(B.t.length&&t<=B.t[B.t.length-1]){ cnt.nDup++; return; }
+    if(t>Date.now()/1000+120){ cnt.nFut++; return; }
+    if(!fin(o)||!fin(h)||!fin(l)){ cnt.nMiss++; return; }
+    if(h<l||c>h+1e-9||c<l-1e-9||o>h+1e-9||o<l-1e-9){ cnt.nBad++; return; }
+    B.t.push(t); B.o.push(o); B.h.push(h); B.l.push(l); B.c.push(c); B.v.push(q.volume&&q.volume[i]>0?q.volume[i]:0);   // volume mancante o ≤0 = 0: la pressione lo esclude
+  });
+  return {B,cnt};
+}
+function sealBars(B,sec){   // identifica la candela in formazione: ultima barra con inizio < sec secondi fa. Se l'ultima è già chiusa (mercato chiuso, provider con sole barre chiuse) aggiunge un segnaposto in formazione, così il motore usa sempre n-2 = ultima chiusa reale
+  const n=B.c.length, age=Date.now()/1000-B.t[n-1];
+  if(age<-5) return 'incerta';
+  if(age>=sec){ const t=B.t[n-1]+sec, c=B.c[n-1]; B.t.push(t); B.o.push(c); B.h.push(c); B.l.push(c); B.c.push(c); B.v.push(0); return 'assente'; }
+  return 'presente';
+}
+function closedHasV(B){ return B.v.slice(0,-1).slice(-20).some(v=>v>0); }   // volume solo sulle barre chiuse usate dalla pressione, mai sulla candela in formazione
+function mkDQ(cnt,nReal,lastReal,B,form,intra){   // la soglia del 2% include tutte le categorie scartate, nTs compreso
+  const nd=cnt.nNull+cnt.nDup+cnt.nFut+cnt.nBad+cnt.nMiss+cnt.nTs, bad=nd>0.02*(nReal+nd), age=(Date.now()/1000-lastReal)/60, mx=intra?10:5760, amb=form==='incerta';
+  return {...cnt,n:nReal,nd,form,tClosed:amb?null:B.t[B.t.length-2],tForm:form==='presente'?lastReal:null,ageMin:age,ok:!amb&&age<=mx&&!bad,why:amb?'ultima candela chiusa non identificabile (timestamp nel futuro)':age>mx?'ultima barra di '+Math.round(age)+' min fa, oltre il limite di '+mx+' min':'scartate '+nd+' barre anomale (oltre il 2%)'};
+}
+const MT={t:0,key:'',data:{}}, MTCFG=[['1H','60m','1mo',240,3600],['15M','15m','5d',60,900],['5M','5m','5d',30,300]];
+function tfRead(B){   // lettura leggera di un TF: struttura + momentum, solo barre chiuse
+  const n=B.c.length; if(n<40) return null;
+  const tr=B.c.map((x,i)=>i?Math.max(B.h[i]-B.l[i],Math.abs(B.h[i]-B.c[i-1]),Math.abs(B.l[i]-B.c[i-1])):B.h[i]-B.l[i]), a=smoothRma(tr,14)[n-2];
+  if(!(a>0)) return null;
+  const st=structure(B,5,a)||structure(B,3,a), M=Math.min(20,n-2), e=n-2, xm=(M-1)/2; let ym=0; for(let j=0;j<M;j++) ym+=B.c[e-M+1+j]; ym/=M;
+  let sxy=0,sxx=0; for(let j=0;j<M;j++){ sxy+=(j-xm)*(B.c[e-M+1+j]-ym); sxx+=(j-xm)*(j-xm); }
+  const mom=Math.tanh(sxy/sxx*(M-1)/(a*Math.sqrt(M))/1.2)*100;
+  return {score:st?.6*st.score+.4*mom:mom,st,mom,lv:st?fmt(st.sl)+' – '+fmt(st.sh):'n/d'};
+}
+async function fetchTF(wk,sym,iv,rg,sec){
+  const ac=new AbortController(), to=setTimeout(()=>ac.abort(),8000);
+  try{ const r=await fetch(workerUrl(wk,sym,rg,iv),{signal:ac.signal}); if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json(), res=j.chart&&j.chart.result&&j.chart.result[0]; if(!res) throw new Error('risposta senza dati');
+    if(res.meta&&res.meta.symbol&&res.meta.symbol.toUpperCase()!==sym) throw new Error('simbolo '+res.meta.symbol+' invece di '+sym);
+    const gr=res.meta&&res.meta.dataGranularity; if(gr&&gr!==iv&&!(iv==='60m'&&gr==='1h')) throw new Error('granularità '+gr+' invece di '+iv);
+    const {B,cnt}=parseBars(res), nd=cnt.nNull+cnt.nDup+cnt.nFut+cnt.nBad+cnt.nMiss+cnt.nTs;
+    if(nd>.02*(B.c.length+nd)) throw new Error('troppe barre anomale ('+nd+')');
+    if(B.c.length<40) throw new Error('dati insufficienti ('+B.c.length+' barre)');
+    const dts=B.t.slice(1).map((t,i)=>t-B.t[i]).sort((a,b)=>a-b), med=dts[dts.length>>1];
+    if(Math.abs(med-sec)>.1*sec) throw new Error('intervallo effettivo '+med+' s invece di '+sec+' s');
+    if(sealBars(B,sec)==='incerta') throw new Error('ultima candela non identificabile (timestamp nel futuro)');
+    return B;
+  } finally{ clearTimeout(to); }
+}
+async function loadMTF(wk,sym){   // cache legata a Worker, simbolo, timeframe e parametri di richiesta (aggiornata ogni 60 s)
+  const key=[wk,sym,JSON.stringify(MTCFG)].join('|');
+  if(MT.key===key&&Date.now()-MT.t<60000) return;
+  if(MT.key!==key) MT.data={};   // Worker o simbolo diverso: i dati precedenti non si riusano
+  MT.key=key; MT.t=Date.now();
+  await Promise.all(MTCFG.map(async([k,iv,rg,lim,sec])=>{ let d;
+    try{ const B=await fetchTF(wk,sym,iv,rg,sec), age=(Date.now()/1000-B.t[B.t.length-2])/60;   // freschezza dell'ultima barra chiusa
+      if(!(age<=lim)) d={ok:false,err:'dati obsoleti ('+Math.round(age)+' min)'};
+      else { const r=tfRead(B); d=r?{ok:true,r}:{ok:false,err:'dati insufficienti ('+B.c.length+' barre)'}; }
+    }catch(e){ d={ok:false,err:e&&e.name==='AbortError'?'timeout':String(e&&e.message)}; }
+    if(MT.key===key) MT.data[k]=d; }));
+}
+function mtfView(R,x){
+  const rows=[['1H','direzione principale'],['15M','struttura e livelli'],['5M','conferma del setup']].map(([tf,role])=>{ const d=MT.data[tf]; return d&&d.ok?Object.assign({tf,role},d.r):{tf,role,score:null,err:d?d.err:'non scaricato'}; });
+  rows.push(R.trend?{tf:'1M',role:'precisione entry',score:R.trend.T,st:x.st,mom:x.mAvg*100,lv:x.st?fmt(x.st.sl)+' – '+fmt(x.st.sh):'n/d'}:{tf:'1M',role:'precisione entry',score:null,err:'non calcolabile'});
+  const av=rows.filter(r=>r.score!=null), hv=av.filter(r=>r.tf!=='1M'), mean=hv.length?hv.reduce((a,r)=>a+r.score,0)/hv.length:null;   // l'1M non entra nella direzione
+  const agree=mean==null?0:av.filter(r=>Math.abs(r.score)>15&&Math.sign(r.score)===Math.sign(mean)).length;
+  const neu=av.filter(r=>Math.abs(r.score)<=15).length, con=av.length-agree-neu;
+  const miss=['1H','15M','5M'].filter(k=>{ const r=rows.find(q=>q.tf===k); return !r||r.score==null; }), stato=miss.length===0?'completo':miss.length<3?'parziale':'non disponibile';   // la media dei soli TF disponibili non è mai presentata come score MTF completo
+  return {rows,score:stato==='completo'?mean:null,stato,partial:mean,miss,txt:'MTF '+stato.toUpperCase()+(miss.length?' (mancano '+miss.join(', ')+'; media parziale '+(mean==null?'n/d':sg(mean))+' non usata come score)':'')+' · '+(av.length?agree+' concordi · '+neu+' neutrali · '+con+' contrari · '+(rows.length-av.length)+' non disponibili':'nessun timeframe disponibile')};
+}
+let SG={key:'',list:[],log:[],last:null,act:null,rst:0,n:null,proc:0};
+function sessionsFrom(m){   // sessioni regolari dai metadati Yahoo (forma vecchia: array di array; nuova: {regular:[[...]]})
+  const out=[], add=x=>{ if(x&&isFinite(x.start)&&isFinite(x.end)&&x.end>x.start) out.push([x.start,x.end]); }, tp=m&&m.tradingPeriods, ea=a=>Array.isArray(a)?a.forEach(add):add(a);
+  if(Array.isArray(tp)) tp.forEach(ea); else if(tp&&Array.isArray(tp.regular)) tp.regular.forEach(ea);
+  return out.sort((x,y)=>x[0]-y[0]);
+}
+const _NH={};
+function nyseHol(y){   // festività NYSE (regole: Capodanno non osservato se cade di sabato; le altre si spostano a venerdì/lunedì). Chiusure straordinarie non sono note: restano trattate come buco
+  if(_NH[y]) return _NH[y];
+  const H=new Set(), p2=n=>String(n).padStart(2,'0'), ds=(m,dd)=>y+'-'+p2(m)+'-'+p2(dd), dim=m=>{ const r=[]; for(let dd=1;dd<=31;dd++){ const x=new Date(Date.UTC(y,m-1,dd)); if(x.getUTCMonth()!==m-1) break; r.push([dd,x.getUTCDay()]); } return r; };
+  const nth=(m,wd,n)=>dim(m).filter(q=>q[1]===wd)[n-1][0], lastD=(m,wd)=>dim(m).filter(q=>q[1]===wd).pop()[0];
+  const fixed=(m,dd,sat)=>{ const w=new Date(Date.UTC(y,m-1,dd)).getUTCDay(); if(w===6){ if(sat) H.add(ds(m,dd-1)); } else if(w===0) H.add(ds(m,dd+1)); else H.add(ds(m,dd)); };
+  fixed(1,1,false); H.add(ds(1,nth(1,1,3))); H.add(ds(2,nth(2,1,3))); H.add(ds(5,lastD(5,1))); if(y>=2022) fixed(6,19,true); fixed(7,4,true); H.add(ds(9,nth(9,1,1))); H.add(ds(11,nth(11,4,4))); fixed(12,25,true);
+  const A=y%19,Bc=Math.floor(y/100),C=y%100,D=Math.floor(Bc/4),E=Bc%4,F=Math.floor((Bc+8)/25),G=Math.floor((Bc-F+1)/3),Hh=(19*A+Bc-D-G+15)%30,I=Math.floor(C/4),K=C%4,Ll=(32+2*E+2*I-Hh-K)%7,M=Math.floor((A+11*Hh+22*Ll)/451),mo=Math.floor((Hh+Ll-7*M+114)/31),da=(Hh+Ll-7*M+114)%31+1;
+  H.add(new Date(Date.UTC(y,mo-1,da-2)).toISOString().slice(0,10));   // Venerdì Santo
+  return _NH[y]=H;
+}
+function sessionsFrom(m){   // sessioni regolari dai metadati Yahoo (forma vecchia: array di array; nuova: {regular:[[...]]})
+  const out=[], add=x=>{ if(x&&isFinite(x.start)&&isFinite(x.end)&&x.end>x.start) out.push([x.start,x.end]); }, tp=m&&m.tradingPeriods, ea=a=>Array.isArray(a)?a.forEach(add):add(a);
+  if(Array.isArray(tp)) tp.forEach(ea); else if(tp&&Array.isArray(tp.regular)) tp.regular.forEach(ea);
+  return out.sort((x,y)=>x[0]-y[0]);
+}
+function contig(p,t,Bt,step,intra,sess,off,cal){   // p e t sono barre consecutive? Pausa = solo chiusura di sessione reale (intraday, orari dai metadati: coprono ora legale e chiusure anticipate) o weekend/festività NYSE (giornaliero). Nel dubbio è un buco
+  const g=t-p; if(g<=1.5*step) return true; if(!Bt||Bt.some(x=>x>p&&x<t)) return false;
+  if(!intra){ for(let d=p+86400;d<t-3600;d+=86400){ const dt=new Date((d+(off||0))*1000), w=dt.getUTCDay(); if(w===0||w===6) continue; if(!(cal&&nyseHol(dt.getUTCFullYear()).has(dt.toISOString().slice(0,10)))) return false; } return true; }
+  if(!sess||!sess.length) return false;
+  const sp=sess.findIndex(q=>p>=q[0]&&p<q[1]), st=sess.findIndex(q=>t>=q[0]&&t<q[1]);
+  return sp>=0&&st===sp+1&&p+step>=sess[sp][1]&&t-sess[st][0]<=step;   // p ultima barra della sessione, t prima della successiva, nessuna seduta intera in mezzo
+}
+function loadSG(key,tBar,step){   // ripristina list, log, last e act (validati); un buco di dati interrompe la serie di barre consecutive senza perdere segnale attivo e storico
+  let o=null; try{ o=JSON.parse(store.get('cf_sg_'+key)); }catch(e){}
+  const num=x=>typeof x==='number'&&isFinite(x), ok=!!o&&typeof o==='object';
+  const list=ok&&Array.isArray(o.list)?o.list.filter(e=>e&&num(e.t)&&(e.z===null||num(e.z))):[], log=ok&&Array.isArray(o.log)?o.log.filter(e=>e&&num(e.t)&&num(e.d)):[];
+  const a=ok&&o.act, act=a&&num(a.d)&&num(a.t)&&num(a.sl)?a:null, g={list,log,last:ok&&num(o.last)?o.last:null,act,key,rst:ok&&num(o.rst)?o.rst:0,n:ok&&num(o.n)?o.n:null,proc:ok&&num(o.proc)?o.proc:0};   // rst: barra dell'ultimo evento invalidato/scaduto, le conferme precedenti non contano più; i buchi si rilevano in renderExtra con contig()
+  return g;
+}
+function scoreRows(R,x,S){   // unico punto di calcolo dello score: componente mancante = escluso e pesi rinormalizzati (non vale zero)
+  const st=x.st, sw_=R.trend&&R.trend.comps.find(c=>c.nm==='Swing'), mt=R.mtf?R.mtf.score:null;
+  const lv_=R.levels||[], th_=Math.max(1.5,.4*R.sMax), sup=lv_.filter(l=>!l.above&&l.score>=th_), rs=lv_.filter(l=>l.above&&l.score>=th_);
+  const ds=sup.length?Math.min(...sup.map(l=>Math.abs(l.d))):null, dr=rs.length?Math.min(...rs.map(l=>Math.abs(l.d))):null, sr=ds==null&&dr==null?null:Math.tanh(((dr==null?6:dr)-(ds==null?6:ds))/2)*100;
+  const parts=[['Struttura',x.sS,S.wS,st?st.lbl+' · '+st.ev+(st.fm?' (in formazione '+st.fm+')':'')+' · '+st.state:'non disponibile (pochi pivot)'],
+    ['Trend operativo (swing)',sw_?sw_.s*100:null,S.wT,sw_?sw_.txt:'non disponibile'],['Confluenza',R.pos,S.wC,R.pos==null?'non disponibile':'supporto − resistenza'],
+    ['Momentum',x.ms.length?x.mAvg*100:null,S.wM,x.ms.length?'regressione su 2 finestre, barre chiuse':'non disponibile'],
+    ['Pressione stimata',x.pr,S.wP,x.pinfo?(x.pinfo.mode==='volume effettivo'?'stima con volume effettivo ('+x.pinfo.used+' barre usate, '+x.pinfo.skipped+' senza volume escluse)':'stima con pesi uniformi: volume assente o insufficiente, conta solo la posizione della chiusura nella candela'):'stima'],['Vicinanza S/R',sr,S.wR,sr==null?'nessun livello forte':'supporto a '+(ds==null?'n/d':fmt(ds,1)+' ATR')+' · resistenza a '+(dr==null?'n/d':fmt(dr,1)+' ATR')],['Multi-timeframe',mt,S.wF,R.mtf?R.mtf.txt:'solo in modalità intraday']];
+  const av=parts.filter(p=>p[1]!=null&&p[2]>0), wa=av.reduce((a,p)=>a+p[2],0), wt=parts.reduce((a,p)=>a+p[2],0)||1;
+  const tot=wa?av.reduce((a,p)=>a+p[1]*p[2],0)/wa:null, LG=wa?av.reduce((a,p)=>a+p[2]*Math.max(0,p[1]),0)/wa:null, SH=wa?av.reduce((a,p)=>a+p[2]*Math.max(0,-p[1]),0)/wa:null, cov=Math.round(wa/wt*100);
+  const rows=parts.map(p=>[p[0],p[1],(p[1]!=null&&p[2]>0&&wa)?p[2]/wa:null,p[3]]).concat([['Complessivo',tot,1,'media pesata dei soli componenti disponibili, pesi rinormalizzati (copertura '+cov+'% dei pesi) · non è una probabilità'],['Punteggio LONG (0–100)',LG,1,'quota rialzista dei componenti disponibili',1,'g'],['Punteggio SHORT (0–100)',SH,1,'quota ribassista dei componenti disponibili',1,'r']]);
+  const f=q=>q.map(p=>p[0]+' '+sg(p[1])).join(', ')||'nessuno', up=av.filter(p=>p[1]>5).sort((p,q)=>q[1]*q[2]-p[1]*p[2]), dn=av.filter(p=>p[1]<-5).sort((p,q)=>p[1]*p[2]-q[1]*q[2]);
+  return {rows,tot,LG,SH,cov,expl:'Spingono al rialzo: '+f(up)+' · al ribasso: '+f(dn)+'. Qualità dati: '+(R.dq&&R.dq.ok?'valida':'NON valida o non verificata (segnali bloccati)')+'.'};
+}
+function renderExtra(R,S,tBar){
+  const x=R.x; if(!x) return;
+  const key=[$('sym').value.trim().toUpperCase(),$('mode').value].join('|');
+  if(SG.key!==key) SG=loadSG(key,tBar,$('mode').value==='i'?60:86400);
+  const SC=scoreRows(R,x,S), sig=evalSignal(R,x), e={t:tBar,z:R.dq.ok&&x.st?sig.side:null};
+  const intra0=$('mode').value==='i', step0=intra0?60:86400, pv=SG.list[SG.list.length-1];
+  if(pv&&pv.t===tBar){ if(!(e.z===null&&pv.z!==null)) SG.list[SG.list.length-1]=e; } else { if(pv&&pv.z!==null&&!contig(pv.t,tBar,R.bt,step0,intra0,R.sess,R.off,R.calNy)) SG.list.push({t:tBar-step0,z:null}); SG.list.push(e); }   // buco: la sequenza di conferma riparte
+  if(SG.list.length>200) SG.list.shift();
+  if(SG.n!=null&&SG.n!==S.N){ SG.rst=Math.max(SG.rst||0,tBar-step0); SG.last=null; } SG.n=S.N;   // cambiando N le osservazioni precedenti non valgono come conferma; segnale attivo e storico restano
+  const getCf=()=>confirmZone(SG.list.filter(z=>z.t>(SG.rst||0)),S.N);   // conferme precedenti a invalidazione/scadenza escluse
+  let cf=getCf(), conf=sig.side!==0&&cf.cur===sig.side;
+  const evt=(ev,A,keep)=>{ if(!SG.log.some(g=>g.ev===ev&&g.ref===A.t)){ SG.log.push({t:tBar,ev,d:A.d,sym:key.split('|')[0],tf:$('mode').value==='i'?'1m':'1d',p:R.cRef,ref:A.t}); if(SG.log.length>30) SG.log.shift(); } SG.act=null; if(!keep){ SG.rst=tBar; SG.last=null; } };   // un solo evento per segnale; invalidato/scaduto azzera la conferma, il cambio di direzione no   // evento separato: il segnale originale resta immutato
+  const newBar=R.dq.ok&&tBar>(SG.proc||0), barsSince=A=>R.bt?R.bt.filter(x=>x>A.t&&x<=tBar).length:SG.list.filter(z=>z.t>A.t).length;   // scadenza in barre chiuse reali del provider, mai in tempo di calendario; stop e scadenza solo su una barra nuova con dati validi
+  if(SG.act&&newBar){ const A=SG.act; if(A.d*(R.cRef-A.sl)<0) evt('invalidato',A); else if(barsSince(A)>=S.expN) evt('scaduto',A); }
+  if(newBar) SG.proc=tBar;
+  cf=getCf(); conf=sig.side!==0&&cf.cur===sig.side;
+  if(cf.cur!=null){ if(SG.last!==cf.cur&&cf.cur!==0){ const q=sig.side===cf.cur?sig:{}; if(SG.act&&SG.act.d!==cf.cur) evt('invalidato',SG.act,true); if(!(SG.act&&SG.act.d===cf.cur)&&!SG.log.some(g=>g.t===tBar&&!g.ev)){ SG.log.push({t:tBar,sym:key.split('|')[0],tf:$('mode').value==='i'?'1m':'1d',d:cf.cur,p:R.cRef,sl:q.sl==null?null:q.sl,t1:q.t1==null?null:q.t1,t2:q.t2==null?null:q.t2,sc:SC.tot==null?null:Math.round(SC.tot),why:q.why||null,stato:'confermato'}); if(SG.log.length>30) SG.log.shift(); if(q.sl!=null) SG.act={d:cf.cur,t:tBar,sl:q.sl,t1:q.t1,t2:q.t2,p:R.cRef}; } } SG.last=cf.cur; }
+  store.set('cf_sg_'+key,JSON.stringify({list:SG.list,log:SG.log,last:SG.last,act:SG.act||null,rst:SG.rst||0,n:SG.n,proc:SG.proc||0}));
+  const t_=R.trend, tz=$('mode').value==='i'?'Europe/Rome':'America/New_York', cc=s=>s==null?'m':s>15?'g':s<-15?'r':'y', {st,ss,vp}=x;
+  const rows=SC.rows;
+  $('dtbl').innerHTML='<tr><th>Valutazione</th><th>Punteggio</th><th>Lettura</th></tr>'+rows.map(r=>`<tr><td>${r[0]}${r[2]===null?' <span class="m">(escluso)</span>':r[2]<1?' <span class="m">('+Math.round(r[2]*100)+'% effettivo)</span>':''}</td><td class="${r[5]||cc(r[1])}">${r[1]==null?'n/d':r[4]?fmt(r[1],0):sg(r[1])}</td><td>${r[3]}</td></tr>`).join('');
+  $('dinfo').textContent=SC.expl+' '+(ss?'Oscillazione breve (pivot '+S.len1+'): '+ss.lbl+' · '+ss.ev+'. ':'')+(vp?'Profilo volume: POC '+fmt(vp.poc)+' · VAH '+fmt(vp.vah)+' · VAL '+fmt(vp.val)+' · prezzo '+(R.c0>vp.vah?'sopra la Value Area':R.c0<vp.val?'sotto la Value Area':'dentro la Value Area')+(()=>{ const nr=a=>a.length?a.reduce((p,q)=>Math.abs(q-R.c0)<Math.abs(p-R.c0)?q:p):null, h_=nr(vp.hvn), l_=nr(vp.lvn); return (h_!=null?' · HVN vicino '+fmt(h_):'')+(l_!=null?' · LVN vicino '+fmt(l_):''); })()+(vp.rvol!=null?' · volume relativo '+fmt(vp.rvol,2)+'×':'')+'. ':'Profilo volume non disponibile. ')+'Volume Delta non calcolato: Yahoo non fornisce dati bid/ask. Il volume per livello di prezzo è una stima OHLCV (distribuito sul range di ogni barra). Struttura e volume usano solo barre chiuse.';
+  const ml=R.mtf; const dir=sc=>sc==null?'n/d':(sc>15?'▲ ':sc<-15?'▼ ':'◆ ')+sg(sc);
+  $('mtbl').innerHTML=ml?'<tr><th>Timeframe</th><th>Direzione</th><th>Struttura</th><th>Momentum</th><th>Livelli (ultimo pivot basso – alto)</th></tr>'+ml.rows.map(r=>r.score==null?`<tr><td>${r.tf} <span class="m">${r.role}</span></td><td class="m">n/d</td><td colspan="3" class="r" style="text-align:left">dato mancante: ${r.err}</td></tr>`:`<tr><td>${r.tf} <span class="m">${r.role}</span></td><td class="${cc(r.score)}">${dir(r.score)}</td><td>${r.st?r.st.lbl+(r.st.ev!=='—'?' '+r.st.ev:''):'n/d'}</td><td class="${cc(r.mom)}">${sg(r.mom)}</td><td>${r.lv}</td></tr>`).join(''):'<tr><td class="m" style="text-align:left">Il multi-timeframe è attivo solo con dati intraday.</td></tr>';
+  $('mnote').textContent=ml?'Concordanza: '+ml.txt+'. Un timeframe mancante non viene stimato e blocca i segnali che lo richiedono (1H, 15M e 5M obbligatori; i contrari li bloccano, i neutrali no). Le barre in formazione sono escluse da ogni TF.':'';
+  const W=warns(R,x,zh.map(z=>z.p).filter(v=>v!=null)); const sv=$('sgv');
+  const DT=d=>d>0?'LONG':'SHORT'; let wy='';
+  if(conf){ sv.className=sig.side>0?'g':'r'; sv.textContent=DT(sig.side)+' CONFERMATO'+(SG.act?' · attivo da '+barsSince(SG.act)+' barre':' · nessun segnale attivo registrato (stop non fissato alla conferma)'); wy='Perché: '+sig.why+(sig.con?' · fattori contrari: '+sig.con:''); }
+  else if(sig.side!==0){ sv.className='y'; sv.textContent='IN OSSERVAZIONE: setup '+DT(sig.side)+' completo, conferma '+(cf.pend&&cf.pend.z===sig.side?cf.pend.k:0)+'/'+S.N+' barre chiuse'; wy='Tutte le condizioni sono soddisfatte ora, ma non è ancora un segnale: '+sig.why; }
+  else if(sig.state==='BLOCKED'){ sv.className='r'; sv.textContent=sig.setup; wy='Nessun segnale finché il blocco non cade.'; }
+  else if(sig.state==='INSUFF'){ sv.className='m'; sv.textContent=sig.setup; }
+  else if(sig.state==='PRE'){ sv.className='y'; sv.textContent='PRE-ALERT '+DT(sig.pd); wy='Direzione potenziale '+DT(sig.pd)+' · manca: '+sig.miss.join('; ')+' · timeframe responsabile: '+sig.tfR+' · da monitorare: '+sig.watch+' · non è un segnale: serve una nuova verifica completa e la conferma su '+S.N+' barre chiuse.'; }
+  else { sv.className='m'; sv.textContent='NEUTRAL'; wy=sig.setup||'Condizioni insufficienti per una direzione.'; }
+  const lastEv=SG.log.slice().reverse().find(g=>g.ev), stato=SG.act?'STATO: segnale '+(SG.act.d>0?'LONG':'SHORT')+' attivo · stop '+fmt(SG.act.sl)+' · scade dopo '+S.expN+' barre':(lastEv&&SG.rst&&lastEv.t===SG.rst?'STATO: ultimo segnale '+lastEv.ev+' ('+(lastEv.d>0?'LONG':'SHORT')+') · serve una nuova conferma di '+S.N+' barre':'STATO: nessun segnale attivo');
+  $('why').textContent=wy+(wy?' · ':'')+stato;
+  $('sgt').innerHTML=sig.side!==0?[['Ingresso teorico (ultima chiusura)',fmt(sig.entry)],['Stop loss',fmt(sig.sl)],['Target 1 (R/R 1,5)',fmt(sig.t1)],['Target 2 (R/R 3)',fmt(sig.t2)],['Prima zona contraria',sig.opp==null?'nessuna forte':fmt(sig.opp)],['Invalidazione',sig.inv],['Motivo',sig.why],['Fattori contrari',sig.con||'nessuno rilevante'],['Timeframe di riferimento','1M entry · 5M conferma · 15M struttura · 1H direzione']].map(r=>`<tr><td>${r[0]}</td><td style="text-align:left;color:var(--tx)">${r[1]}</td></tr>`).join(''):'';
+  const w=W;
+  $('ewl').textContent=(w.length?'PREALLARMI: '+w.join(' · ')+'. ':'Nessun preallarme. ')+'Un preallarme non è un segnale: servono tutte le condizioni e la conferma su '+S.N+' barre chiuse.';
+  $('sglog').innerHTML=SG.log.length?'<tr><th>Barra</th><th>Lato</th><th>Prezzo</th><th>Stop / T1 / T2</th><th>Score</th></tr>'+SG.log.slice().reverse().map(g=>`<tr><td>${new Date(g.t*1000).toLocaleString('it-IT',{timeZone:tz})}</td><td title="${g.why||''}" class="${g.d>0?'g':'r'}" style="font-weight:600">${g.d>0?'LONG':'SHORT'}${g.ev?' · '+g.ev:''}</td><td>${fmt(g.p)}</td><td>${g.ev?'—':g.sl==null?'n/d':fmt(g.sl)+' / '+fmt(g.t1)+' / '+fmt(g.t2)}</td><td>${g.ev?'—':g.sc==null?'n/d':sg(g.sc)}</td></tr>`).join(''):'<tr><td class="m" style="text-align:left">Nessun segnale confermato finora.</td></tr>';
+  const d=R.dq, tm=t=>t?new Date(t*1000).toLocaleTimeString('it-IT',{timeZone:tz}):'n/d';
+  $('dq').textContent='Qualità dati: '+(d.ok?'OK':'NON VALIDI ('+d.why+')')+' · ultima barra chiusa '+tm(d.tClosed)+' · '+(d.tForm?'candela in formazione dalle '+tm(d.tForm)+' (prezzo provvisorio '+fmt(R.live)+')':d.form==='incerta'?'candela in formazione NON identificabile':'nessuna candela in formazione (solo barre chiuse)')+' · aggiornato alle '+new Date().toLocaleTimeString('it-IT',{timeZone:tz})+' · ritardo '+Math.max(0,Math.round(d.ageMin-1))+' min · barre '+d.n+' · scartate: nulle '+d.nNull+', duplicate/fuori ordine '+d.nDup+', future '+d.nFut+', OHLC incoerenti '+d.nBad+', OHLC incompleti '+d.nMiss+', timestamp non validi '+d.nTs+' · volume '+(x.hasV?'presente sulle barre chiuse usate':'assente sulle barre chiuse usate (la candela in formazione non conta)')+'. Decisioni solo su barre chiuse (la candela in formazione è informativa). Nessuna probabilità di successo è stimata.'+(R.calNote?' ATTENZIONE: '+R.calNote+'.':'');
+}
+
+function workerUrl(base,sym,range,interval){ return base+(base.includes('?')?'&':'?')+`symbol=${encodeURIComponent(sym)}&interval=${interval}&range=${encodeURIComponent(range)}`; }
+
+let last=null, busy=false, lastOk='';
+async function run(){
+  if(busy) return;
+  const wk=$('worker').value.trim(), sym=$('sym').value.trim().toUpperCase();
+  if(!wk){ $('st').textContent="Inserisci l'URL del Worker Yahoo."; return; }
+  const intra=$('mode').value==='i', range=$('range').value.trim()||(intra?'5d':'2y'), S=readSettings();
+  store.set('cf_worker',wk); store.set('cf_sym',sym); store.set('cf_mode',$('mode').value); store.set('cf_conf',String(S.N));
+  store.set('cf_ratios',$('ratios').value); store.set('cf_range_'+$('mode').value,range);
+  const adv={}; ADV.forEach(a=>{ adv[a[0]]=S[a[0]]; }); store.set('cf_adv',JSON.stringify(adv));
+  $('st').textContent='Scarico dati…'; $('go').disabled=true; busy=true;
+  try{
+    const ac=new AbortController(), to=setTimeout(()=>ac.abort(),8000);
+    let r; try{ r=await fetch(workerUrl(wk,sym,range,intra?'1m':'1d'),{signal:ac.signal}); } finally{ clearTimeout(to); }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json(); const res0=j.chart&&j.chart.result&&j.chart.result[0];
+    if(!res0) throw new Error((j.chart&&j.chart.error&&j.chart.error.description)||'risposta senza dati');
+    const gr=res0.meta&&res0.meta.dataGranularity;
+    if(gr&&gr!==(intra?'1m':'1d')) throw new Error('il Worker ha restituito dati '+gr+' invece di '+(intra?'1 minuto':'giornalieri'));
+    if(res0.meta&&res0.meta.symbol&&res0.meta.symbol.toUpperCase()!==sym) throw new Error('il Worker ha restituito '+res0.meta.symbol+' invece di '+sym);
+    const PB=parseBars(res0), B=PB.B, {nNull,nDup,nFut,nBad,nMiss,nTs}=PB.cnt;
+    if(B.c.length>MAXBARS) for(const k in B) B[k]=B[k].slice(-MAXBARS);
+    if(B.c.length<S.atrLen+30) throw new Error(`solo ${B.c.length} barre: ne servono almeno ${S.atrLen+30} (aumenta Storico)`);
+    const nReal=B.c.length, lastReal=B.t[nReal-1], form=sealBars(B,intra?60:86400);
+    const t0=Date.now(), R=confluence(B,S);
+    if(!R) throw new Error('ATR non calcolabile con questi dati');
+    last=R; R.trend=trendRead(B,R,intra); R.dq=mkDQ({nNull,nDup,nFut,nBad,nMiss,nTs},nReal,lastReal,B,form,intra); R.levels=mergeLevels(R.levels,R.atrC); R.x=extra(B,R,S,intra); R.bt=B.t; R.sess=sessionsFrom(res0.meta); R.off=(res0.meta&&res0.meta.gmtoffset)||0; R.calNy=!!(res0.meta&&res0.meta.exchangeTimezoneName==='America/New_York'); R.calNote=intra?(R.sess.length?'':'metadati di sessione assenti: ogni salto oltre una barra è trattato come buco'):(R.calNy?'':'calendario di questa borsa non disponibile: i salti oltre il weekend sono trattati come buchi'); R.hasVol=R.hasVol&&R.x.hasV; if(intra){ await loadMTF(wk,sym); R.mtf=mtfView(R,R.x); } render(R,S,B.t[B.t.length-2]); lastOk=new Date().toLocaleTimeString('it-IT');
+    const tz=intra?'Europe/Rome':(res0.meta&&res0.meta.exchangeTimezoneName)||'America/New_York';
+    const when=new Date(lastReal*1000).toLocaleString('it-IT',{timeZone:tz});
+    $('st').textContent=`${sym} · ${nReal} barre ${intra?'da 1 min':'giornaliere'} · ultima barra ${when} (${tz}) · ${R.nOB} OB e ${R.nFVG} FVG nella finestra · calcolo ${Date.now()-t0} ms`+(R.hasVol?'':' · nessun dato di volume: V1-V3 e Vext vuoti');
+  }catch(e){
+    $('st').textContent='Errore: '+(e&&e.name==='AbortError'?'timeout della richiesta (8 s)':e.message);
+    if(lastOk){ $('out').style.opacity='.5'; $('st').textContent+=' · risultato mostrato NON aggiornato (ultimo aggiornamento riuscito alle '+lastOk+')'; }
+  }
+  finally{ $('go').disabled=false; busy=false; }
+}
+$('go').onclick=run;
+$('logclear').onclick=()=>{ if(LOG){ LOG.items=[]; store.set('cf_log_'+zhKey,JSON.stringify(LOG)); renderLog(); } };
+['mode'].forEach(id=>{ $(id).onchange=()=>{ $('range').value=store.get('cf_range_'+$('mode').value)||($('mode').value==='i'?'5d':'2y'); run(); }; });
+['conf','ratios'].forEach(id=>{ $(id).onchange=run; });
+ADV.forEach(a=>{ $('a_'+a[0]).onchange=run; });
+$('areset').onclick=()=>{ ADV.forEach(a=>{ $('a_'+a[0]).value=a[2]; }); $('ratios').value=DEF_RATIOS; run(); };
+window.addEventListener('resize',()=>{ if(last) draw(last,readSettings()); });
+if($('worker').value) run();
+setInterval(()=>{ if($('mode').value==='i' && $('worker').value.trim()) run(); },10000); // aggiornamento automatico ogni 10 s (solo intraday)
+</script>
+</body>
+</html>
